@@ -9,12 +9,12 @@ class MapWidget extends StatefulWidget {
   final String label;
 
   const MapWidget({
-    Key? key,
+    super.key,
     required this.initialLat,
     required this.initialLon,
     required this.onLocationTapped,
     required this.label,
-  }) : super(key: key);
+  });
 
   @override
   State<MapWidget> createState() => _MapWidgetState();

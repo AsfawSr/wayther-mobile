@@ -10,7 +10,7 @@ import '../widgets/route_info_card.dart';
 import '../widgets/map_widget.dart';
 
 class RoutePlannerScreen extends StatefulWidget {
-  const RoutePlannerScreen({Key? key}) : super(key: key);
+  const RoutePlannerScreen({super.key});
 
   @override
   State<RoutePlannerScreen> createState() => _RoutePlannerScreenState();

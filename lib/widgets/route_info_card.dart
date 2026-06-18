@@ -5,9 +5,9 @@ class RouteInfoCard extends StatelessWidget {
   final OsrmRouteResponse route;
 
   const RouteInfoCard({
-    Key? key,
+    super.key,
     required this.route,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

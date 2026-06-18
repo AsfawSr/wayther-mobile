@@ -5,9 +5,9 @@ class WarningBanner extends StatelessWidget {
   final WeatherSnapshot weather;
 
   const WarningBanner({
-    Key? key,
+    super.key,
     required this.weather,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
