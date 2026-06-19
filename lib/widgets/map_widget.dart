@@ -33,22 +33,27 @@ class _MapWidgetState extends State<MapWidget> {
   void initState() {
     super.initState();
     _mapController = MapController();
-    _updateMapPosition();
+    // Don't update position here as the map might not be ready yet
+    // We'll update it in the first frame after build
+    WidgetsBinding.instance.addPostFrameCallback(_updateMapPosition);
   }
 
   @override
   void didUpdateWidget(covariant MapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _updateMapPosition();
+    // Update position when widget properties change
+    WidgetsBinding.instance.addPostFrameCallback(_updateMapPosition);
   }
 
-  void _updateMapPosition() {
+  void _updateMapPosition(_) {
+    if (!mounted) return;
+
     if (widget.origin != null && widget.destination != null) {
       final bounds = LatLngBounds(
         widget.origin!,
         widget.destination!,
       );
-      _mapController.fitBounds(bounds, padding: 50);
+      _mapController.fitBounds(bounds);
     } else if (widget.origin != null) {
       _mapController.move(widget.origin!, 13.0);
     } else if (widget.destination != null) {
