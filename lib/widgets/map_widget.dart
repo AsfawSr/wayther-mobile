@@ -53,7 +53,12 @@ class _MapWidgetState extends State<MapWidget> {
         widget.origin!,
         widget.destination!,
       );
-      _mapController.fitBounds(bounds);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(50),
+        ),
+      );
     } else if (widget.origin != null) {
       _mapController.move(widget.origin!, 13.0);
     } else if (widget.destination != null) {

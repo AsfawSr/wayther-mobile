@@ -19,97 +19,96 @@ class RoutePlannerScreen extends StatefulWidget {
 }
 
 class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
-  final _originLatController = TextEditingController();
-  final _originLonController = TextEditingController();
-  final _destLatController = TextEditingController();
-  final _destLonController = TextEditingController();
+  // For map interaction - stores the currently selected location from map tap
+  LatLng? _selectedLocation;
 
-  // For map interaction
+  // Origin and destination points
   LatLng? _originPoint;
   LatLng? _destPoint;
-  bool _isSettingOrigin = true; // true = setting origin, false = setting destination
+
+  // Controller for search field
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _prefillCurrentLocation();
-    _setupControllers();
+    _setupSearchController();
   }
 
   void _prefillCurrentLocation() {
     final locationProvider = context.read<LocationProvider>();
     if (locationProvider.hasLocation) {
-      final lat = locationProvider.latitude!.toStringAsFixed(4);
-      final lon = locationProvider.longitude!.toStringAsFixed(4);
-      _originLatController.text = lat;
-      _originLonController.text = lon;
-      _originPoint = LatLng(locationProvider.latitude!, locationProvider.longitude!);
+      _selectedLocation = LatLng(locationProvider.latitude!, locationProvider.longitude!);
     }
   }
 
-  void _setupControllers() {
-    _originLatController.addListener(_updateOriginFromFields);
-    _originLonController.addListener(_updateOriginFromFields);
-    _destLatController.addListener(_updateDestinationFromFields);
-    _destLonController.addListener(_updateDestinationFromFields);
+  void _setupSearchController() {
+    _searchController.addListener(() {
+      // We don't need to store the query separately since we use the controller directly
+    });
   }
 
-  void _updateOriginFromFields() {
-    final lat = double.tryParse(_originLatController.text);
-    final lon = double.tryParse(_originLonController.text);
-    if (lat != null && lon != null) {
-      setState(() {
-        _originPoint = LatLng(lat, lon);
-      });
-    }
-  }
-
-  void _updateDestinationFromFields() {
-    final lat = double.tryParse(_destLatController.text);
-    final lon = double.tryParse(_destLonController.text);
-    if (lat != null && lon != null) {
-      setState(() {
-        _destPoint = LatLng(lat, lon);
-      });
-    }
+  void _onSearchSubmitted(String value) {
+    // For now, just show a snackbar - in a real app this would trigger geocoding
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Search for "$value" - functionality coming soon')),
+    );
+    // Clear the search field after submitting
+    _searchController.clear();
   }
 
   void _onMapTapped(LatLng point) {
     setState(() {
-      if (_isSettingOrigin) {
-        _originPoint = point;
-        _originLatController.text = point.latitude.toStringAsFixed(4);
-        _originLonController.text = point.longitude.toStringAsFixed(4);
-      } else {
-        _destPoint = point;
-        _destLatController.text = point.latitude.toStringAsFixed(4);
-        _destLonController.text = point.longitude.toStringAsFixed(4);
-      }
+      _selectedLocation = point;
     });
   }
 
-  void _planRoute() {
-    final originLat = double.tryParse(_originLatController.text);
-    final originLon = double.tryParse(_originLonController.text);
-    final destLat = double.tryParse(_destLatController.text);
-    final destLon = double.tryParse(_destLonController.text);
-
-    if (originLat == null ||
-        originLon == null ||
-        destLat == null ||
-        destLon == null) {
+  void _setAsOrigin() {
+    if (_selectedLocation != null) {
+      setState(() {
+        _originPoint = _selectedLocation;
+      });
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter valid coordinates')),
+        const SnackBar(content: Text('Please tap on the map to select a location first')),
+      );
+    }
+  }
+
+  void _setAsDestination() {
+    if (_selectedLocation != null) {
+      setState(() {
+        _destPoint = _selectedLocation;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please tap on the map to select a location first')),
+      );
+    }
+  }
+
+  void _planRoute() {
+    if (_originPoint == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please set an origin location')),
+      );
+      return;
+    }
+
+    if (_destPoint == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please set a destination location')),
       );
       return;
     }
 
     final routeProvider = context.read<RouteProvider>();
     routeProvider.fetchRoute(
-      originLat: originLat,
-      originLon: originLon,
-      destLat: destLat,
-      destLon: destLon,
+      originLat: _originPoint!.latitude,
+      originLon: _originPoint!.longitude,
+      destLat: _destPoint!.latitude,
+      destLon: _destPoint!.longitude,
     );
   }
 
@@ -119,13 +118,13 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
     // Create checkpoints at 15, 30, 60 minutes along route
     List<FutureWeatherCheckpoint> checkpoints = [
       FutureWeatherCheckpoint(
-        latitude: double.parse(_originLatController.text),
-        longitude: double.parse(_originLonController.text),
+        latitude: _originPoint!.latitude,
+        longitude: _originPoint!.longitude,
         targetIso: DateTime.now().add(const Duration(minutes: 15)),
       ),
       FutureWeatherCheckpoint(
-        latitude: double.parse(_destLatController.text),
-        longitude: double.parse(_destLonController.text),
+        latitude: _destPoint!.latitude,
+        longitude: _destPoint!.longitude,
         targetIso: DateTime.now().add(const Duration(minutes: 30)),
       ),
     ];
@@ -135,14 +134,7 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
 
   @override
   void dispose() {
-    _originLatController.removeListener(_updateOriginFromFields);
-    _originLonController.removeListener(_updateOriginFromFields);
-    _destLatController.removeListener(_updateDestinationFromFields);
-    _destLonController.removeListener(_updateDestinationFromFields);
-    _originLatController.dispose();
-    _originLonController.dispose();
-    _destLatController.dispose();
-    _destLonController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -158,108 +150,98 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Origin',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 12),
+            // Search Bar
             TextField(
-              controller: _originLatController,
+              controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Latitude',
+                hintText: 'Search location (e.g., "New York", "Eiffel Tower")',
+                prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                hintText: '9.03',
+                filled: true,
+                fillColor: Colors.grey[50],
               ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _originLonController,
-              decoration: InputDecoration(
-                labelText: 'Longitude',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                hintText: '38.74',
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Destination',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _destLatController,
-              decoration: InputDecoration(
-                labelText: 'Latitude',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                hintText: '9.08',
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _destLonController,
-              decoration: InputDecoration(
-                labelText: 'Longitude',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                hintText: '38.79',
-              ),
-              keyboardType: TextInputType.number,
+              onSubmitted: _onSearchSubmitted,
+              keyboardType: TextInputType.text,
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _isSettingOrigin = true;
-                    });
-                  },
-                  icon: const Icon(Icons.edit_location),
-                  label: const Text('Set Origin'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isSettingOrigin ? Colors.blue[700] : Colors.blue[200],
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _isSettingOrigin = false;
-                    });
-                  },
-                  icon: const Icon(Icons.edit_location),
-                  label: const Text('Set Destination'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: !_isSettingOrigin ? Colors.blue[700] : Colors.blue[200],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+
+            // Map Widget
             MapWidget(
-              initialLat: _originPoint?.latitude ?? 9.03,
-              initialLon: _originPoint?.longitude ?? 38.74,
+              initialLat: _selectedLocation?.latitude ?? 9.03,
+              initialLon: _selectedLocation?.longitude ?? 38.74,
               route: _getRoutePoints(),
               origin: _originPoint,
               destination: _destPoint,
               onTap: _onMapTapped,
-              label: 'Select Origin and Destination',
+              label: 'Tap on map to select a location',
             ),
+            const SizedBox(height: 12),
+
+            // Selected location info
+            if (_selectedLocation != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  border: Border.all(color: Colors.blue[200]!),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Selected Location: Lat: ${_selectedLocation!.latitude.toStringAsFixed(4)}, Lon: ${_selectedLocation!.longitude.toStringAsFixed(4)}',
+                  style: TextStyle(fontSize: 14, color: Colors.blue[800]),
+                ),
+              ),
+
             const SizedBox(height: 16),
+
+            // Action Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _setAsOrigin,
+                  icon: const Icon(Icons.edit_location),
+                  label: const Text('Set as Origin'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _originPoint == null ? Colors.blue[700] : Colors.green[700],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _setAsDestination,
+                  icon: const Icon(Icons.edit_location),
+                  label: const Text('Set as Destination'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _destPoint == null ? Colors.blue[700] : Colors.green[700],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Origin/Destination Info
+            if (_originPoint != null || _destPoint != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_originPoint != null)
+                    Text(
+                      'Origin: Lat: ${_originPoint!.latitude.toStringAsFixed(4)}, Lon: ${_originPoint!.longitude.toStringAsFixed(4)}',
+                      style: TextStyle(fontSize: 12, color: Colors.green[700]),
+                    ),
+                  if (_destPoint != null)
+                    Text(
+                      'Destination: Lat: ${_destPoint!.latitude.toStringAsFixed(4)}, Lon: ${_destPoint!.longitude.toStringAsFixed(4)}',
+                      style: TextStyle(fontSize: 12, color: Colors.red[700]),
+                    ),
+                ],
+              ),
+
+            const SizedBox(height: 16),
+
+            // Error Message
             Consumer<RouteProvider>(
               builder: (context, routeProvider, _) {
                 if (routeProvider.error != null) {
@@ -279,7 +261,10 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
                 return const SizedBox.shrink();
               },
             ),
+
             const SizedBox(height: 16),
+
+            // Plan Route Button
             SizedBox(
               width: double.infinity,
               child: Consumer<RouteProvider>(
@@ -306,7 +291,10 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
                 },
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // Route Information
             Consumer<RouteProvider>(
               builder: (context, routeProvider, _) {
                 if (routeProvider.route != null && routeProvider.route!.isSuccess) {
@@ -331,7 +319,10 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
                 return const SizedBox.shrink();
               },
             ),
+
             const SizedBox(height: 16),
+
+            // Weather Along Route
             Consumer<WeatherProvider>(
               builder: (context, weatherProvider, _) {
                 if (weatherProvider.batchWeather.isNotEmpty) {
