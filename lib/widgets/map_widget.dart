@@ -5,14 +5,20 @@ import 'package:latlong2/latlong.dart';
 class MapWidget extends StatefulWidget {
   final double initialLat;
   final double initialLon;
-  final Function(double lat, double lon) onLocationTapped;
+  final List<LatLng>? route;
+  final LatLng? origin;
+  final LatLng? destination;
+  final Function(LatLng) onTap;
   final String label;
 
   const MapWidget({
     super.key,
     required this.initialLat,
     required this.initialLon,
-    required this.onLocationTapped,
+    this.route,
+    this.origin,
+    this.destination,
+    required this.onTap,
     required this.label,
   });
 
@@ -22,19 +28,34 @@ class MapWidget extends StatefulWidget {
 
 class _MapWidgetState extends State<MapWidget> {
   late MapController _mapController;
-  late LatLng _selectedLocation;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
-    _selectedLocation = LatLng(widget.initialLat, widget.initialLon);
+    _updateMapPosition();
   }
 
   @override
-  void dispose() {
-    _mapController.dispose();
-    super.dispose();
+  void didUpdateWidget(covariant MapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _updateMapPosition();
+  }
+
+  void _updateMapPosition() {
+    if (widget.origin != null && widget.destination != null) {
+      final bounds = LatLngBounds(
+        widget.origin!,
+        widget.destination!,
+      );
+      _mapController.fitBounds(bounds, padding: 50);
+    } else if (widget.origin != null) {
+      _mapController.move(widget.origin!, 13.0);
+    } else if (widget.destination != null) {
+      _mapController.move(widget.destination!, 13.0);
+    } else {
+      _mapController.move(LatLng(widget.initialLat, widget.initialLon), 13.0);
+    }
   }
 
   @override
@@ -50,14 +71,14 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Tap on map to select location',
+          'Tap on map to set location',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey,
               ),
         ),
         const SizedBox(height: 12),
         Container(
-          height: 300,
+          height: 400,
           decoration: BoxDecoration(
             border: Border.all(color: Colors.blue[200]!),
             borderRadius: BorderRadius.circular(8),
@@ -65,13 +86,8 @@ class _MapWidgetState extends State<MapWidget> {
           child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              center: _selectedLocation,
-              zoom: 13.0,
               onTap: (tapPosition, latLng) {
-                setState(() {
-                  _selectedLocation = latLng;
-                });
-                widget.onLocationTapped(latLng.latitude, latLng.longitude);
+                widget.onTap(latLng);
               },
             ),
             children: [
@@ -80,51 +96,42 @@ class _MapWidgetState extends State<MapWidget> {
                 userAgentPackageName: 'com.example.wayther',
                 maxNativeZoom: 19,
               ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _selectedLocation,
-                    child: const Icon(
-                      Icons.location_on,
-                      color: Colors.red,
-                      size: 40,
+              if (widget.route != null && widget.route!.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: widget.route!,
+                      color: Colors.blue,
+                      strokeWidth: 4.0,
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            border: Border.all(color: Colors.blue[200]!),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Selected Location:',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey,
+                  ],
+                ),
+              if (widget.origin != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: widget.origin!,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.green,
+                        size: 40,
+                      ),
                     ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Lat: ${_selectedLocation.latitude.toStringAsFixed(4)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  ],
+                ),
+              if (widget.destination != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: widget.destination!,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 40,
+                      ),
                     ),
-              ),
-              Text(
-                'Lon: ${_selectedLocation.longitude.toStringAsFixed(4)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
+                  ],
+                ),
             ],
           ),
         ),

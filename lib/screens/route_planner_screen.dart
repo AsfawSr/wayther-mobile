@@ -4,6 +4,7 @@ import '../providers/location_provider.dart';
 import '../providers/route_provider.dart';
 import '../providers/weather_provider.dart';
 import '../models/checkpoint.dart';
+import '../models/route.dart';
 import '../widgets/warning_banner.dart';
 import '../widgets/weather_card.dart';
 import '../widgets/route_info_card.dart';
@@ -13,7 +14,7 @@ class RoutePlannerScreen extends StatefulWidget {
   const RoutePlannerScreen({super.key});
 
   @override
-  State<RoutePlannerScreen> createState() => _RoutePlannerScreenState();
+  State<RoutePlannerScreenState> createState() => _RoutePlannerScreenState();
 }
 
 class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
@@ -22,18 +23,68 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   final _destLatController = TextEditingController();
   final _destLonController = TextEditingController();
 
+  // For map interaction
+  LatLng? _originPoint;
+  LatLng? _destPoint;
+  bool _isSettingOrigin = true; // true = setting origin, false = setting destination
+
   @override
   void initState() {
     super.initState();
     _prefillCurrentLocation();
+    _setupControllers();
   }
 
   void _prefillCurrentLocation() {
     final locationProvider = context.read<LocationProvider>();
     if (locationProvider.hasLocation) {
-      _originLatController.text = locationProvider.latitude!.toStringAsFixed(4);
-      _originLonController.text = locationProvider.longitude!.toStringAsFixed(4);
+      final lat = locationProvider.latitude!.toStringAsFixed(4);
+      final lon = locationProvider.longitude!.toStringAsFixed(4);
+      _originLatController.text = lat;
+      _originLonController.text = lon;
+      _originPoint = LatLng(locationProvider.latitude!, locationProvider.longitude!);
     }
+  }
+
+  void _setupControllers() {
+    _originLatController.addListener(_updateOriginFromFields);
+    _originLonController.addListener(_updateOriginFromFields);
+    _destLatController.addListener(_updateDestinationFromFields);
+    _destLonController.addListener(_updateDestinationFromFields);
+  }
+
+  void _updateOriginFromFields() {
+    final lat = double.tryParse(_originLatController.text);
+    final lon = double.tryParse(_originLonController.text);
+    if (lat != null && lon != null) {
+      setState(() {
+        _originPoint = LatLng(lat, lon);
+      });
+    }
+  }
+
+  void _updateDestinationFromFields() {
+    final lat = double.tryParse(_destLatController.text);
+    final lon = double.tryParse(_destLonController.text);
+    if (lat != null && lon != null) {
+      setState(() {
+        _destPoint = LatLng(lat, lon);
+      });
+    }
+  }
+
+  void _onMapTapped(LatLng point) {
+    setState(() {
+      if (_isSettingOrigin) {
+        _originPoint = point;
+        _originLatController.text = point.latitude.toStringAsFixed(4);
+        _originLonController.text = point.longitude.toStringAsFixed(4);
+      } else {
+        _destPoint = point;
+        _destLatController.text = point.latitude.toStringAsFixed(4);
+        _destLonController.text = point.longitude.toStringAsFixed(4);
+      }
+    });
   }
 
   void _planRoute() {
@@ -61,8 +112,32 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
     );
   }
 
+  void _fetchWeatherAlongRoute(OsrmRouteResponse route) {
+    final weatherProvider = context.read<WeatherProvider>();
+
+    // Create checkpoints at 15, 30, 60 minutes along route
+    List<FutureWeatherCheckpoint> checkpoints = [
+      FutureWeatherCheckpoint(
+        latitude: double.parse(_originLatController.text),
+        longitude: double.parse(_originLonController.text),
+        targetIso: DateTime.now().add(const Duration(minutes: 15)),
+      ),
+      FutureWeatherCheckpoint(
+        latitude: double.parse(_destLatController.text),
+        longitude: double.parse(_destLonController.text),
+        targetIso: DateTime.now().add(const Duration(minutes: 30)),
+      ),
+    ];
+
+    weatherProvider.fetchBatchWeather(checkpoints);
+  }
+
   @override
   void dispose() {
+    _originLatController.removeListener(_updateOriginFromFields);
+    _originLonController.removeListener(_updateOriginFromFields);
+    _destLatController.removeListener(_updateDestinationFromFields);
+    _destLonController.removeListener(_updateDestinationFromFields);
     _originLatController.dispose();
     _originLonController.dispose();
     _destLatController.dispose();
@@ -143,30 +218,47 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
               ),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 24),
-            MapWidget(
-              initialLat: double.tryParse(_originLatController.text) ?? 9.03,
-              initialLon: double.tryParse(_originLonController.text) ?? 38.74,
-              label: 'Select Origin Location',
-              onLocationTapped: (lat, lon) {
-                setState(() {
-                  _originLatController.text = lat.toStringAsFixed(4);
-                  _originLonController.text = lon.toStringAsFixed(4);
-                });
-              },
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isSettingOrigin = true;
+                    });
+                  },
+                  icon: const Icon(Icons.edit_location),
+                  label: const Text('Set Origin'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isSettingOrigin ? Colors.blue[700] : Colors.blue[200],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isSettingOrigin = false;
+                    });
+                  },
+                  icon: const Icon(Icons.edit_location),
+                  label: const Text('Set Destination'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !_isSettingOrigin ? Colors.blue[700] : Colors.blue[200],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             MapWidget(
-              initialLat: double.tryParse(_destLatController.text) ?? 9.08,
-              initialLon: double.tryParse(_destLonController.text) ?? 38.79,
-              label: 'Select Destination Location',
-              onLocationTapped: (lat, lon) {
-                setState(() {
-                  _destLatController.text = lat.toStringAsFixed(4);
-                  _destLonController.text = lon.toStringAsFixed(4);
-                });
-              },
+              initialLat: _originPoint?.latitude ?? 9.03,
+              initialLon: _originPoint?.longitude ?? 38.74,
+              route: _getRoutePoints(),
+              origin: _originPoint,
+              destination: _destPoint,
+              onTap: _onMapTapped,
+              label: 'Select Origin and Destination',
             ),
+            const SizedBox(height: 16),
             Consumer<RouteProvider>(
               builder: (context, routeProvider, _) {
                 if (routeProvider.error != null) {
@@ -216,7 +308,7 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
             const SizedBox(height: 24),
             Consumer<RouteProvider>(
               builder: (context, routeProvider, _) {
-                if (routeProvider.route != null) {
+                if (routeProvider.route != null && routeProvider.route!.isSuccess) {
                   return Column(
                     children: [
                       RouteInfoCard(route: routeProvider.route!),
@@ -272,23 +364,11 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
     );
   }
 
-  void _fetchWeatherAlongRoute(dynamic route) {
-    final weatherProvider = context.read<WeatherProvider>();
-
-    // Create checkpoints at 15, 30, 60 minutes along route
-    List<FutureWeatherCheckpoint> checkpoints = [
-      FutureWeatherCheckpoint(
-        latitude: double.parse(_originLatController.text),
-        longitude: double.parse(_originLonController.text),
-        targetIso: DateTime.now().add(const Duration(minutes: 15)),
-      ),
-      FutureWeatherCheckpoint(
-        latitude: double.parse(_destLatController.text),
-        longitude: double.parse(_destLonController.text),
-        targetIso: DateTime.now().add(const Duration(minutes: 30)),
-      ),
-    ];
-
-    weatherProvider.fetchBatchWeather(checkpoints);
+  List<LatLng>? _getRoutePoints() {
+    final routeProvider = context.read<RouteProvider>();
+    if (routeProvider.route != null && routeProvider.route!.isSuccess) {
+      return routeProvider.route!.routePoints;
+    }
+    return null;
   }
 }
