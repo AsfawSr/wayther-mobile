@@ -30,28 +30,22 @@ class OsrmRouteResponse {
   factory OsrmRouteResponse.fromJson(Map<String, dynamic> json) {
     List<LatLng> points = [];
     if (json['routes'] != null && json['routes'].isNotEmpty) {
-      // Try to extract geometry from the first route
       var route = json['routes'][0];
       if (route.containsKey('geometry')) {
         var geometry = route['geometry'];
-        // Handle different geometry formats
-        if (geometry is String) {
-          // Polyline encoded string - we would need to decode it
-          // For now, we'll leave it empty and rely on waypoints or steps
-          // TODO: Add polyline decoding if needed
-        } else if (geometry is Map<String, dynamic> && geometry.containsKey('coordinates')) {
-          // GeoJSON LineString format: { "type": "LineString", "coordinates": [[lon1, lat1], [lon2, lat2], ...] }
+        if (geometry is Map<String, dynamic> && geometry.containsKey('coordinates')) {
+          // GeoJSON LineString format: [[lon, lat], ...]
           var coords = geometry['coordinates'] as List<dynamic>;
           for (var coord in coords) {
             if (coord is List<dynamic> && coord.length >= 2) {
-              // Assuming [lon, lat] format
               points.add(LatLng(coord[1] as double, coord[0] as double));
             }
           }
         }
+        // Encoded polyline strings are not decoded here (would require a separate package)
       }
 
-      // If we didn't get points from geometry, try to get from legs/steps
+      // Fall back to maneuver locations from steps
       if (points.isEmpty && route.containsKey('legs')) {
         var legs = route['legs'] as List<dynamic>;
         for (var leg in legs) {
@@ -106,5 +100,29 @@ class OsrmRouteResponse {
       return '${hours}h ${mins}m';
     }
     return '${mins}m';
+  }
+
+  /// Returns [count] evenly-spaced LatLng points along the route, including
+  /// origin (index 0) and destination (index count-1).
+  List<LatLng> getIntermediatePoints(int count) {
+    if (routePoints.isEmpty) return [];
+    if (count <= 1) return [routePoints.first];
+    if (routePoints.length == 1) return List.filled(count, routePoints.first);
+
+    final result = <LatLng>[];
+    for (int i = 0; i < count; i++) {
+      // Map i → index in routePoints via linear interpolation
+      final t = i / (count - 1);
+      final rawIndex = t * (routePoints.length - 1);
+      final index = rawIndex.round().clamp(0, routePoints.length - 1);
+      result.add(routePoints[index]);
+    }
+    return result;
+  }
+
+  /// Returns the estimated duration (in seconds) to reach [fraction] (0.0–1.0)
+  /// of the route, based on the total duration.
+  int durationAtFraction(double fraction) {
+    return (totalDuration * fraction).round();
   }
 }

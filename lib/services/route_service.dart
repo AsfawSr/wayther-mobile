@@ -22,3 +22,4 @@ class RouteService {
     return OsrmRouteResponse.fromJson(response);
   }
 }
+
