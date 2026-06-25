@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/weather_provider.dart';
 import 'providers/route_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  runApp(const WaytherApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class WaytherApp extends StatelessWidget {
+  const WaytherApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -21,14 +28,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RouteProvider()),
       ],
       child: MaterialApp(
-        title: 'Wayther - Weather Pathfinder',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          brightness: Brightness.light,
-        ),
-        home: const HomeScreen(),
+        title: 'Wayther',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+        home: const SplashScreen(),
       ),
     );
   }
 }
+
