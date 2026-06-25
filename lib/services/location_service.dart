@@ -53,3 +53,4 @@ class LocationException implements Exception {
   @override
   String toString() => message;
 }
+

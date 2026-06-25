@@ -44,3 +44,4 @@ class WeatherService {
     return response.map((item) => WeatherSnapshot.fromJson(item as Map<String, dynamic>)).toList();
   }
 }
+

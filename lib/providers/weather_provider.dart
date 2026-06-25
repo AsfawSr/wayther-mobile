@@ -68,3 +68,4 @@ class WeatherProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+

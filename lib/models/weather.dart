@@ -47,3 +47,4 @@ class WeatherSnapshot {
     return '';
   }
 }
+

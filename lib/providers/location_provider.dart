@@ -32,3 +32,4 @@ class LocationProvider extends ChangeNotifier {
 
   bool get hasLocation => currentPosition != null;
 }
+
