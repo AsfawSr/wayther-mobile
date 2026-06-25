@@ -1,9 +1,10 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/app_config.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080';
-  static const Duration timeout = Duration(seconds: 15);
+  static String get baseUrl => AppConfig.backendBaseUrl;
+  static Duration get timeout => AppConfig.apiTimeout;
 
   static Future<Map<String, dynamic>> get(
     String endpoint, {
@@ -106,3 +107,4 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
