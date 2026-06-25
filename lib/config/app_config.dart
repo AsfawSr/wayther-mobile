@@ -5,10 +5,10 @@ abstract final class AppConfig {
   /// Base URL for the Wayther backend API.
   ///
   /// Override at build time with:
-  ///   flutter run --dart-define=BACKEND_URL=https://your-server.com
+  ///   flutter run --dart-define=BACKEND_URL=http://10.0.2.2:8080
   static const String backendBaseUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: kDebugMode ? 'http://10.0.2.2:8080' : 'http://10.0.2.2:8080',
+    defaultValue: 'https://skypath-41gd.onrender.com',
   );
 
   /// How long to wait for API responses before timing out.
